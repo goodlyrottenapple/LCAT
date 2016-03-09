@@ -308,14 +308,18 @@ lemma pbeta_cases_2:
     (\<And>s' t'. a2 = App (Lam [x]. s') t' \<Longrightarrow> atom x \<sharp> t' \<Longrightarrow> s \<rightarrow>\<parallel>b s' \<Longrightarrow> t \<rightarrow>\<parallel>b t' \<Longrightarrow> P) \<Longrightarrow>
     (\<And>t' s'. a2 = s' [x ::= t'] \<Longrightarrow> atom x \<sharp> t' \<Longrightarrow> atom x \<sharp> t \<Longrightarrow> s \<rightarrow>\<parallel>b s' \<Longrightarrow> t \<rightarrow>\<parallel>b t' \<Longrightarrow> P) \<Longrightarrow> P"
 apply atomize_elim
-apply (cases "App (Lam [x]. s) t" a2 rule:pbeta.cases)
-apply simp
-proof -
+proof (cases "App (Lam [x]. s) t" a2 rule:pbeta.cases, simp)
 case goal1 
   then obtain s'' where 1: "s' = Lam [x]. s''" "s \<rightarrow>\<parallel>b s''" using aaaaa2 by blast
   thus ?case using goal1 fresh_in_pbeta  by auto
 next
-case (goal2 xx _ ss) thus ?case sorry
+case (goal2 xx _ ss)
+  have 1: "s' [xx ::= t'] = ((x \<leftrightarrow> xx) \<bullet> s') [x ::= t']"
+    by (metis (no_types, lifting) Abs1_eq_iff(3) Nominal2_Base.swap_self add_flip_cancel flip_def fresh_in_pbeta goal2(3) goal2(7) permute_flip_cancel permute_plus subst_rename) 
+  from goal2 have 2: "s \<rightarrow>\<parallel>b ((x \<leftrightarrow> xx) \<bullet> s')"
+    by (metis Abs1_eq_iff(3) Nominal2_Base.swap_self add_flip_cancel flip_def pbeta.eqvt permute_flip_cancel permute_plus)
+  from goal2 have 3: "atom x \<sharp> t'" using fresh_in_pbeta by simp
+  with goal2 1 2 show ?case by auto
 qed
 
 
@@ -325,7 +329,6 @@ lemma pbeta_max_closes_pbeta:
   and "a \<rightarrow>\<parallel>b b"
   shows "b \<rightarrow>\<parallel>b d"
 using assms proof (nominal_induct arbitrary: b rule:pbeta_max.strong_induct)
-print_cases
 case (cd_refl a)  
   show ?case using cd_refl pbeta.cases by fastforce
 next
@@ -345,9 +348,14 @@ case (cd_beta u ard ar al ald)
     by simp_all
   qed
 next
-case (cd_app ) thus ?case sorry
+case (cd_app al ald ar ard) 
+  from cd_app(6,1) show ?case
+  apply (cases "App al ar" b rule:pbeta.cases)
+  defer
+  apply simp
+  using cd_app by auto
 next
-case cd_abs thus ?case sorry
+case (cd_abs al ald x) thus ?case using aaaaa2 by blast
 qed
 
 
