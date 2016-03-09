@@ -1,6 +1,8 @@
 theory UntypedNom
 imports "Nominal2-Isabelle2015/Nominal/Nominal2" "~~/src/HOL/Eisbach/Eisbach" begin
 
+text {* Disclaimer: Some of the definitions were copied over and adapted from Nominal2-Isabelle2015/Nominal/Nominal2/Ex/Lambda.thy *}
+
 atom_decl name
 
 nominal_datatype lam =
@@ -162,7 +164,7 @@ where
 equivariance pbeta_max
 
 nominal_inductive pbeta_max
-  avoids cd_beta: "x" | cd_abs: "x" (*don't understand what this does exactly or why we need it...*)
+  avoids cd_beta: "x" | cd_abs: "x" (*don't understand what this does exactly or why we need it in the abs case ...*)
   by (simp_all add: fresh_star_def fresh_Pair fresh_fact)
 
 thm pbeta_max.strong_induct
@@ -243,7 +245,6 @@ apply (induct s rule:lam.induct)
 by auto
 
 
-
 lemma pbeta_max_ex:
   fixes a
   shows "\<exists>d. a >>> d"
@@ -259,11 +260,6 @@ case goal1
 qed
 
 
-lemma aux: "s[x ::= (Var x)] = s" 
-apply(nominal_induct s avoiding:x rule:lam.strong_induct)
-by simp_all
-
-
 
 lemma subst_rename: 
   assumes a: "atom y \<sharp> t"
@@ -274,22 +270,32 @@ apply (auto simp add:  fresh_at_base)
 done
 
 
-(* this should be true, right? *)
-lemma fresh_in_p_abs: "Lam [x]. s \<rightarrow>\<parallel>b s' \<Longrightarrow> atom x \<sharp> s'"
-sorry
+lemma fresh_in_pbeta: "s \<rightarrow>\<parallel>b s' \<Longrightarrow> atom (x::name) \<sharp> s \<Longrightarrow>  atom x \<sharp> s'"
+apply (nominal_induct s s' rule:pbeta.strong_induct)
+apply simp
+apply simp
+apply auto[1]
+proof - 
+case (goal1 xx)
+  then have "atom x \<sharp> t" by simp
+  { assume "x = xx" with goal1 have ?case by (simp add: fresh_fact) }
+  { assume "x \<noteq> xx" with goal1 have ?case by (simp add: fresh_fact) }
+  thus ?case using `x = xx \<Longrightarrow> atom x \<sharp> s' [xx ::= t']` by blast
+qed
 
 
 (* adopting great naming conventions so early on! *)
 lemma aaaaa2: "(Lam [x]. s) \<rightarrow>\<parallel>b s' \<Longrightarrow> \<exists>t. s' = Lam [x]. t \<and> s \<rightarrow>\<parallel>b t"
 proof (cases "(Lam [x]. s)" s' rule:pbeta.cases, simp)
   case (goal1 _ _ x')
-    then have 1: "s \<rightarrow>\<parallel>b ((x' \<leftrightarrow> x) \<bullet> t2)" using pbeta.eqvt by (metis Abs1_eq_iff(3) Nominal2_Base.swap_self add_flip_cancel flip_commute flip_def permute_flip_cancel2 permute_plus) sorry
+    then have 1: "s \<rightarrow>\<parallel>b ((x' \<leftrightarrow> x) \<bullet> t2)" using pbeta.eqvt by (metis Abs1_eq_iff(3) Nominal2_Base.swap_self add_flip_cancel flip_commute flip_def permute_flip_cancel2 permute_plus)
     from goal1 have 2: "(x' \<leftrightarrow> x) \<bullet> s' = Lam [x]. ((x' \<leftrightarrow> x) \<bullet> t2)" by simp
     { assume "atom x \<sharp> (Lam [x']. t2)"
       with 2 have "s' = Lam [x]. ((x' \<leftrightarrow> x) \<bullet> t2)" unfolding goal1 by (metis "2" flip_fresh_fresh goal1(3) lam.fresh(3) list.set_intros(1))
       with 1 have ?case by auto }
     { assume c1: "\<not> (atom x \<sharp> (Lam [x']. t2))"
-      from goal1 have "atom x \<sharp> s'" using fresh_in_p_abs by blast
+      have "atom x \<sharp> Lam [x]. s" by simp
+      with goal1 have "atom x \<sharp> s'" using fresh_in_pbeta by blast
       with c1 have False unfolding goal1 by simp
       then have ?case ..
     }
@@ -298,8 +304,8 @@ qed
 
 
 lemma pbeta_cases_2:
-  shows "App (Lam [x]. s) t \<rightarrow>\<parallel>b a2 \<Longrightarrow> 
-    (\<And>s' t'. a2 = App (Lam [x]. s') t' \<Longrightarrow> s \<rightarrow>\<parallel>b s' \<Longrightarrow> t \<rightarrow>\<parallel>b t' \<Longrightarrow> P) \<Longrightarrow>
+  shows "atom x \<sharp> t \<Longrightarrow> App (Lam [x]. s) t \<rightarrow>\<parallel>b a2 \<Longrightarrow> 
+    (\<And>s' t'. a2 = App (Lam [x]. s') t' \<Longrightarrow> atom x \<sharp> t' \<Longrightarrow> s \<rightarrow>\<parallel>b s' \<Longrightarrow> t \<rightarrow>\<parallel>b t' \<Longrightarrow> P) \<Longrightarrow>
     (\<And>t' s'. a2 = s' [x ::= t'] \<Longrightarrow> atom x \<sharp> t' \<Longrightarrow> atom x \<sharp> t \<Longrightarrow> s \<rightarrow>\<parallel>b s' \<Longrightarrow> t \<rightarrow>\<parallel>b t' \<Longrightarrow> P) \<Longrightarrow> P"
 apply atomize_elim
 apply (cases "App (Lam [x]. s) t" a2 rule:pbeta.cases)
@@ -307,7 +313,7 @@ apply simp
 proof -
 case goal1 
   then obtain s'' where 1: "s' = Lam [x]. s''" "s \<rightarrow>\<parallel>b s''" using aaaaa2 by blast
-  thus ?case using goal1 by auto
+  thus ?case using goal1 fresh_in_pbeta  by auto
 next
 case (goal2 xx _ ss) thus ?case sorry
 qed
@@ -324,21 +330,19 @@ case (cd_refl a)
   show ?case using cd_refl pbeta.cases by fastforce
 next
 case (cd_beta u ard ar al ald)
-  from cd_beta(7) show ?case
-  thm pbeta.cases
+  from cd_beta(2,7) show ?case
   apply (rule_tac pbeta_cases_2)
-  apply simp
+  apply (simp, simp)
   proof -
   case (goal2 arb alb)
     with cd_beta have "alb \<rightarrow>\<parallel>b ald" "arb \<rightarrow>\<parallel>b ard" by simp+
     thus ?case unfolding goal2 apply (rule_tac Lem2_5_1) by simp+
   next
   case (goal1 alb arb)
-    with cd_beta have "alb \<rightarrow>\<parallel>b ald" "arb \<rightarrow>\<parallel>b ard" by simp+
-    thus ?case unfolding goal1 
-    apply (rule_tac pbeta.p_beta) using goal1 cd_beta 
-    apply simp_all
-    sorry
+    with cd_beta have ih: "alb \<rightarrow>\<parallel>b ald" "arb \<rightarrow>\<parallel>b ard" by simp+
+    show ?case unfolding goal1 
+    apply (rule_tac pbeta.p_beta) using goal1 cd_beta ih
+    by simp_all
   qed
 next
 case (cd_app ) thus ?case sorry
