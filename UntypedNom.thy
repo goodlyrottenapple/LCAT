@@ -375,5 +375,63 @@ proof -
   thus ?thesis by auto
 qed
 
+
+inductive beta_c :: "lam \<Rightarrow> lam \<Rightarrow> bool" ("_ \<longrightarrow>b* _" [80,80] 80)
+where
+  base[intro]: "a \<longrightarrow>b b \<Longrightarrow> a \<longrightarrow>b* b"
+| refl[intro]: "a \<longrightarrow>b* a"
+| trans[intro]: "\<lbrakk> a \<longrightarrow>b* b ; b \<longrightarrow>b* c \<rbrakk> \<Longrightarrow> a \<longrightarrow>b* c"
+
+
+inductive pbeta_c :: "lam \<Rightarrow> lam \<Rightarrow> bool" ("_ \<rightarrow>\<parallel>b* _" [80,80] 80)
+where
+  base[intro]: "a \<rightarrow>\<parallel>b b \<Longrightarrow> a \<rightarrow>\<parallel>b* b"
+| refl[intro]: "a \<rightarrow>\<parallel>b* a"
+| trans[intro]: "\<lbrakk> a \<rightarrow>\<parallel>b* b ; b \<rightarrow>\<parallel>b* c \<rbrakk> \<Longrightarrow> a \<rightarrow>\<parallel>b* c"
+
+
+definition DP :: "(lam \<Rightarrow> lam \<Rightarrow> bool) \<Rightarrow> (lam \<Rightarrow> lam \<Rightarrow> bool) \<Rightarrow> bool" where
+"DP R T = (\<forall>a b c. R a b \<and> T a c \<longrightarrow> (\<exists>d. T b d \<and> R c d))"
+
+lemma DP_R_R_imp_DP_R_Rc_pbeta:
+  assumes "DP pbeta pbeta"
+    shows "DP pbeta pbeta_c"
+using assms unfolding DP_def
+apply auto
+proof -
+case goal1 
+  from goal1(3,2) show ?case
+  apply (induct arbitrary: b rule:pbeta_c.induct)
+  using goal1(1) by blast+
+qed
+
+lemma DP_R_R_imp_DP_Rc_Rc_pbeta:
+  assumes "DP pbeta pbeta"
+    shows "DP pbeta_c pbeta_c"
+using assms unfolding DP_def
+apply auto
+proof -
+case goal1 
+  from goal1(2,3) show ?case
+  apply (induct arbitrary: c rule:pbeta_c.induct)
+  using DP_R_R_imp_DP_R_Rc_pbeta using DP_def assms apply fastforce
+  apply auto
+  by blast
+qed
+
+lemma M1: "m \<longrightarrow>b* m' \<Longrightarrow> m \<rightarrow>\<parallel>b* m'" sorry
+lemma M2: "m \<rightarrow>\<parallel>b* m' \<Longrightarrow> m \<longrightarrow>b* m'" sorry
+
+
+lemma church_rosser:
+  assumes "a \<longrightarrow>b* b"
+      and "a \<longrightarrow>b* c"
+    shows "\<exists>d. b \<longrightarrow>b* d \<and> c \<longrightarrow>b* d"
+proof -
+  from assms have "a \<rightarrow>\<parallel>b* b" "a \<rightarrow>\<parallel>b* c" using M1 by simp+
+  then obtain d where "b \<rightarrow>\<parallel>b* d" "c \<rightarrow>\<parallel>b* d" by (metis DP_R_R_imp_DP_Rc_Rc_pbeta DP_def Lem2_5_2) 
+  thus ?thesis using M2 by blast
+qed
+
 end
 
