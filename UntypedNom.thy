@@ -290,19 +290,12 @@ proof (cases "(Lam [x]. s)" s' rule:pbeta.cases, simp)
   case (goal1 _ _ x')
     then have 1: "s \<rightarrow>\<parallel>b ((x' \<leftrightarrow> x) \<bullet> t2)" using pbeta.eqvt by (metis Abs1_eq_iff(3) Nominal2_Base.swap_self add_flip_cancel flip_commute flip_def permute_flip_cancel2 permute_plus)
     from goal1 have 2: "(x' \<leftrightarrow> x) \<bullet> s' = Lam [x]. ((x' \<leftrightarrow> x) \<bullet> t2)" by simp
-    { assume "atom x \<sharp> (Lam [x']. t2)"
-      with 2 have "s' = Lam [x]. ((x' \<leftrightarrow> x) \<bullet> t2)" unfolding goal1 by (metis "2" flip_fresh_fresh goal1(3) lam.fresh(3) list.set_intros(1))
-      with 1 have ?case by auto }
-    { assume c1: "\<not> (atom x \<sharp> (Lam [x']. t2))"
-      have "atom x \<sharp> Lam [x]. s" by simp
-      with goal1 have "atom x \<sharp> s'" using fresh_in_pbeta by blast
-      with c1 have False unfolding goal1 by simp
-      then have ?case ..
-    }
-    thus ?case using `atom x \<sharp> Lam [x']. t2 \<Longrightarrow> \<exists>t. s' = Lam [x]. t \<and> s \<rightarrow>\<parallel>b t` by blast
+    from goal1 have "atom x \<sharp> (Lam [x']. t2)"  using fresh_in_pbeta by (meson lam.fresh(3) list.set_intros(1))
+    with 2 have "s' = Lam [x]. ((x' \<leftrightarrow> x) \<bullet> t2)" unfolding goal1 by (metis "2" flip_fresh_fresh goal1(3) lam.fresh(3) list.set_intros(1))
+    with 1 show ?case by auto
 qed
 
-
+thm pbeta.cases
 lemma pbeta_cases_2:
   shows "atom x \<sharp> t \<Longrightarrow> App (Lam [x]. s) t \<rightarrow>\<parallel>b a2 \<Longrightarrow> 
     (\<And>s' t'. a2 = App (Lam [x]. s') t' \<Longrightarrow> atom x \<sharp> t' \<Longrightarrow> s \<rightarrow>\<parallel>b s' \<Longrightarrow> t \<rightarrow>\<parallel>b t' \<Longrightarrow> P) \<Longrightarrow>
@@ -420,7 +413,31 @@ case goal1
 qed
 
 lemma M1: "m \<longrightarrow>b* m' \<Longrightarrow> m \<rightarrow>\<parallel>b* m'" sorry
-lemma M2: "m \<rightarrow>\<parallel>b* m' \<Longrightarrow> m \<longrightarrow>b* m'" sorry
+lemma M2: "m \<rightarrow>\<parallel>b* m' \<Longrightarrow> m \<longrightarrow>b* m'"
+proof (nominal_induct m avoiding: m' rule:lam.strong_induct)
+print_cases
+case (Var x) thus ?case 
+  apply (cases rule:pbeta_c.cases)
+  apply (cases "Var x" m' rule:pbeta.cases)
+  apply simp 
+  apply auto
+  proof -
+  case goal1 from goal1(1,2) show ?case sorry
+  qed
+next
+case (App p q) from App(3) show ?case
+  apply (cases rule:pbeta_c.cases)
+defer
+apply auto[1]
+defer
+  apply (cases "App p q" m' rule:pbeta.cases)
+  apply auto[1]
+  apply auto[1]
+  sorry
+next
+case (Lam x p p') thus ?case sorry
+qed
+
 
 
 lemma church_rosser:
